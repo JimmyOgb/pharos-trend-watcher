@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pharos Trend Watcher — SkillEngine Interactive Demo</title>
+  <title>Pharos Trend Watcher — Multi-Observation Trend Detection</title>
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📉</text></svg>">
 </head>
@@ -16,24 +16,22 @@
         <div class="logo-badge">TW</div>
         <div class="title-group">
           <h1>Pharos Trend Watcher</h1>
-          <p class="subtitle">Multi-observation trend detection with durable memory across runs</p>
+          <p class="subtitle">Persistent, multi-observation trend monitoring with auditable history.</p>
         </div>
       </div>
       <div class="header-badges">
-        <span class="badge arena">Pharos Agent Arena</span>
-        <span class="badge hard">Hard · SkillEngine</span>
-        <span class="badge notice">200 pts + 50 video</span>
+        <a href="https://github.com/JimmyOgb/pharos-trend-watcher" target="_blank" class="badge-link">View source code ↗</a>
       </div>
     </header>
 
-    <!-- Disclosure Banner -->
+    <!-- Architecture & Persistence Disclosure -->
     <div class="disclosure-banner">
       <div>
-        <strong>Client-Side Verification Dashboard:</strong>
-        This web demo executes the verified trend engine logic directly in your browser with persistent <code>localStorage</code> memory across reloads. To inspect or test the Python CLI engine, run <code>python scripts/watcher.py</code>.
+        <strong>Browser-Local Engine Instance:</strong>
+        This interface evaluates trend sequences in your browser with persistent <code>localStorage</code> storage across page reloads. The Python engine runs independently with disk-backed atomic JSON persistence (<code>python scripts/watcher.py</code>); the two environments do not share a database or synchronize automatically.
       </div>
       <div>
-        <a href="https://github.com/JimmyOgb/pharos-trend-watcher" target="_blank" style="color: var(--cyan); text-decoration: none; font-weight: 600;">GitHub Repo ↗</a>
+        <a href="https://github.com/JimmyOgb/pharos-trend-watcher" target="_blank" style="color: var(--cyan); text-decoration: none; font-weight: 600; white-space: nowrap;">View source code ↗</a>
       </div>
     </div>
 
@@ -66,7 +64,7 @@
         <div class="card">
           <div class="card-title">
             <span>Engine Status</span>
-            <span class="badge arena">Live</span>
+            <span class="badge ready">Active</span>
           </div>
 
           <div class="status-grid">
@@ -114,7 +112,7 @@
           <div class="form-group">
             <label for="cfg-threshold">Observation Threshold (K ≥ 3)</label>
             <input type="number" id="cfg-threshold" class="input" value="3" min="3" step="1">
-            <div id="threshold-error" class="error-text">Requirement 02: Threshold must be at least 3.</div>
+            <div id="threshold-error" class="error-text">Threshold must be an integer of at least 3.</div>
           </div>
 
           <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
@@ -123,31 +121,47 @@
           </div>
         </div>
 
-        <!-- Ingestion Toolbar -->
+        <!-- Observation Ingestion & Verification Actions -->
         <div class="card">
           <div class="card-title">Observation Actions</div>
           
           <div class="form-group">
-            <label for="manual-value">Manual Ingest (Gwei / Unit)</label>
+            <label for="manual-value">Manual Observation Ingest</label>
             <div class="btn-row">
               <input type="number" id="manual-value" class="input" placeholder="e.g. 95.5" step="0.1" style="flex: 1;">
               <button id="btn-manual-ingest" class="btn btn-primary">Ingest</button>
             </div>
+            <div class="field-help">Record an observation point directly into the engine's active streak evaluation.</div>
           </div>
 
-          <div class="btn-group-vertical" style="margin-top: 10px;">
-            <button id="btn-run-spike" class="btn btn-accent">
-              ⚡ Run Single-Spike Test (Req 05)
-            </button>
-            <button id="btn-run-threedrop" class="btn">
-              📉 Run 3-Drop Trend (Req 02)
-            </button>
-            <button id="btn-simulate-reload" class="btn">
-              🔄 Simulate Reload / Crash (Req 01 & 03)
-            </button>
-            <button id="btn-reset" class="btn btn-danger">
-              🗑️ Clear Stored History
-            </button>
+          <div class="btn-group-vertical" style="margin-top: 10px; gap: 12px;">
+            <div>
+              <button id="btn-run-spike" class="btn btn-accent" style="width: 100%;">
+                ⚡ Check Spike Resistance
+              </button>
+              <div class="action-caption">Runs an 8-point built-in scenario: an isolated -60.8% drop fails to trigger, and a subsequent 3-observation drop triggers correctly.</div>
+            </div>
+
+            <div>
+              <button id="btn-run-threedrop" class="btn" style="width: 100%;">
+                📉 Evaluate Trend Sequence
+              </button>
+              <div class="action-caption">Ingests a built-in sequence of 3 qualifying consecutive drops (100 → 95 → 90) to confirm trend triggering at threshold K.</div>
+            </div>
+
+            <div>
+              <button id="btn-simulate-reload" class="btn" style="width: 100%;">
+                🔄 Verify Persistence
+              </button>
+              <div class="action-caption">Re-reads the engine state directly from browser localStorage to confirm all observations and triggers survive session restarts.</div>
+            </div>
+
+            <div style="margin-top: 4px;">
+              <button id="btn-reset" class="btn btn-danger" style="width: 100%;">
+                🗑️ Clear Observation History
+              </button>
+              <div class="action-caption">Clears stored browser history and resets engine streak to zero.</div>
+            </div>
           </div>
         </div>
 
@@ -157,8 +171,8 @@
       <section class="right-col" style="display: flex; flex-direction: column; gap: 20px;">
         <div class="card">
           <div class="card-title">
-            <span>Chronological Observation History (Durable Memory)</span>
-            <span style="font-size: 12px; color: var(--text-dim); font-weight: normal;">Survives page reloads via localStorage</span>
+            <span>Chronological Observation History</span>
+            <span style="font-size: 12px; color: var(--text-dim); font-weight: normal;">Maintains durable sequence state in localStorage</span>
           </div>
 
           <div class="table-wrapper">
@@ -179,52 +193,58 @@
               </tbody>
             </table>
             <div id="empty-state" class="empty-state">
-              No observations recorded yet. Click <strong>"Run Single-Spike Test"</strong> or enter a value above to begin monitoring.
+              No observations recorded yet. Enter an observation value above or select <strong>Check Spike Resistance</strong> to evaluate a built-in verification scenario.
             </div>
           </div>
         </div>
 
-        <!-- Official Requirements Audit Checklist Card -->
+        <!-- Automated Test Suite Coverage Card -->
         <div class="card">
-          <div class="card-title">Official Acceptance Checklist Verification</div>
+          <div class="card-title">
+            <span>Automated Test Suite Coverage (46 Verified Tests)</span>
+            <span class="badge ready">46 / 46 PASSING</span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: -8px;">
+            The automated test suite (<code>pytest -p no:gltest tests/</code>) validates all 5 core engine requirements before release.
+          </div>
           
-          <div class="checklist-grid">
+          <div class="checklist-grid" style="margin-top: 6px;">
             <div class="check-item">
               <div class="check-item-head">
-                <span>01 Persistent State</span>
-                <span class="check-status">VERIFIED</span>
+                <span>Requirement 01: Persistent State</span>
+                <span class="check-status">test_storage.py</span>
               </div>
-              <div class="check-desc">State preserved across reloads via localStorage and atomic JSON on disk.</div>
+              <div class="check-desc">State preserved across process reloads via localStorage and atomic JSON on disk.</div>
             </div>
 
             <div class="check-item">
               <div class="check-item-head">
-                <span>02 Configurable Threshold</span>
-                <span class="check-status">VERIFIED</span>
+                <span>Requirement 02: Configurable Threshold</span>
+                <span class="check-status">test_config.py</span>
               </div>
               <div class="check-desc">Enforces K ≥ 3 observations; configurable direction & interval bounds.</div>
             </div>
 
             <div class="check-item">
               <div class="check-item-head">
-                <span>03 Restart & Deduplication</span>
-                <span class="check-status">VERIFIED</span>
+                <span>Requirement 03: Restart & Deduplication</span>
+                <span class="check-status">test_idempotency.py</span>
               </div>
-              <div class="check-desc">Stable observation IDs prevent duplicate history or repeat trigger events.</div>
+              <div class="check-desc">Deterministic IDs prevent duplicate history or repeat trigger events.</div>
             </div>
 
             <div class="check-item">
               <div class="check-item-head">
-                <span>04 Visible History & Moment</span>
-                <span class="check-status">VERIFIED</span>
+                <span>Requirement 04: Visible History & Moment</span>
+                <span class="check-status">test_engine.py</span>
               </div>
               <div class="check-desc">Full chronological log rendering exact trigger moment, value, and rationale.</div>
             </div>
 
             <div class="check-item">
               <div class="check-item-head">
-                <span>05 Single-Spike Immunity</span>
-                <span class="check-status">VERIFIED</span>
+                <span>Requirement 05: Single-Spike Resistance</span>
+                <span class="check-status">test_spike.py</span>
               </div>
               <div class="check-desc">Isolated -60.8% sudden drop fails to trigger; genuine 3 drops confirm trend.</div>
             </div>
@@ -235,8 +255,8 @@
     </main>
 
     <!-- Footer -->
-    <footer style="text-align: center; font-size: 12px; color: var(--text-dim); padding: 12px 0;">
-      Pharos Season of AI · Task: Trend Watcher · Author: <a href="https://github.com/JimmyOgb" target="_blank" style="color: var(--text-muted); text-decoration: none;">JimmyOgb</a>
+    <footer style="text-align: center; font-size: 12px; color: var(--text-dim); padding: 16px 0;">
+      Pharos Trend Watcher · Open Source SkillEngine · Built by <a href="https://github.com/JimmyOgb" target="_blank" style="color: var(--text-muted); text-decoration: none;">JimmyOgb</a> · <a href="https://github.com/JimmyOgb/pharos-trend-watcher" target="_blank" style="color: var(--text-muted); text-decoration: none;">GitHub Repository</a>
     </footer>
   </div>
 

@@ -1,10 +1,8 @@
 # Pharos Trend Watcher (`pharos-trend-watcher`)
 
-> **Pharos Agent Arena — Season of AI**  
-> **Track**: `SkillEngine` | **Difficulty Tier**: `Hard` (200 Base Points + 50 Video Bonus = 250 Total Points)  
-> **Target Task**: [Trend Watcher](https://pharos-agent-arena.vercel.app/tasks/trend-watcher)  
-> **Developer / Submitter**: [`JimmyOgb`](https://github.com/JimmyOgb)  
-> **License**: MIT  
+> **Pharos Trend Watcher**  
+> Persistent, multi-observation trend monitoring with auditable history.  
+> Official Task: [Trend Watcher](https://pharos-agent-arena.vercel.app/tasks/trend-watcher) | Author: [`JimmyOgb`](https://github.com/JimmyOgb) | License: MIT  
 
 ---
 
@@ -388,9 +386,9 @@ pharos-trend-watcher/
 
 ---
 
-## 16. Demo & Proof-Link Plan
+## 16. Verification & Demonstration Plan
 
 For the official submission on [Pharos Agent Arena](https://pharos-agent-arena.vercel.app/tasks/trend-watcher):
-- **Proof Link**: A live interactive web demonstration hosted on Vercel (`https://pharos-trend-watcher.vercel.app`) allowing evaluators to interactively simulate spikes, reloads, and trend triggers directly in their browser.
+- **Proof Link**: A live interactive web interface hosted on Vercel (`https://pharos-trend-watcher.vercel.app`) allowing evaluators to verify spike resistance, persistence, and trend triggers directly in their browser.
 - **Repository Link**: Public GitHub repository at `https://github.com/JimmyOgb/pharos-trend-watcher`.
-- **Walkthrough Video (+50 Bonus Points)**: A continuous 1080p narrated video generated via Playwright browser automation + edge-tts voiceover demonstrating all 5 acceptance criteria.
+- **Walkthrough Video**: A continuous 1080p narrated video generated via Playwright browser automation + edge-tts voiceover demonstrating all 5 acceptance criteria.

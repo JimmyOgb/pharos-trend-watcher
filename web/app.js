@@ -343,11 +343,22 @@ document.addEventListener('DOMContentLoaded', () => {
   selectDirection.addEventListener('change', handleConfigChange);
   checkMonotonic.addEventListener('change', handleConfigChange);
 
+  const toastBanner = document.getElementById('toast-banner');
+
+  function showToast(message, duration = 3000) {
+    if (!toastBanner) return;
+    toastBanner.textContent = message;
+    toastBanner.style.display = 'block';
+    setTimeout(() => {
+      toastBanner.style.display = 'none';
+    }, duration);
+  }
+
   // Event: Manual Ingest
   btnManualIngest.addEventListener('click', () => {
     const val = parseFloat(manualValInput.value);
     if (isNaN(val)) {
-      alert('Please enter a valid numeric value.');
+      showToast('Please enter a valid numeric value.');
       return;
     }
     const res = engine.ingest(val);
@@ -355,7 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
     render();
   });
 
-  // Event: Run 3-Drop Trend
+  // Event: Evaluate Trend Sequence (Built-in 3-drop sequence)
   btnRunThreeDrop.addEventListener('click', async () => {
     btnRunThreeDrop.disabled = true;
     engine.reset();
@@ -363,14 +374,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const sequence = [100.0, 95.0, 90.0];
     for (let i = 0; i < sequence.length; i++) {
-      engine.ingest(sequence[i], new Date(Date.now() + i * 60000).toISOString(), `demo_drop_0${i + 1}`);
+      engine.ingest(sequence[i], new Date(Date.now() + i * 60000).toISOString(), `seq_drop_0${i + 1}`);
       render();
       await new Promise(r => setTimeout(r, 400));
     }
     btnRunThreeDrop.disabled = false;
   });
 
-  // Event: Run 8-Point Single Spike Scenario
+  // Event: Check Spike Resistance (Built-in 8-point scenario)
   btnRunSpike.addEventListener('click', async () => {
     btnRunSpike.disabled = true;
     engine.reset();
@@ -384,32 +395,21 @@ document.addEventListener('DOMContentLoaded', () => {
     btnRunSpike.disabled = false;
   });
 
-  const toastBanner = document.getElementById('toast-banner');
-
-  function showToast(message, duration = 3000) {
-    if (!toastBanner) return;
-    toastBanner.textContent = message;
-    toastBanner.style.display = 'block';
-    setTimeout(() => {
-      toastBanner.style.display = 'none';
-    }, duration);
-  }
-
-  // Event: Simulate Reload
+  // Event: Verify Persistence (Reload from localStorage)
   btnSimulateReload.addEventListener('click', () => {
     const currentCount = engine.state.observations.length;
     // Instantiate fresh engine from localStorage
     const reloaded = new ClientTrendEngine();
     engine.state = reloaded.state;
     render();
-    showToast(`Durable State Reloaded from localStorage! Preserved ${currentCount} observations and ${engine.state.triggers.length} trigger events.`);
+    showToast(`Durable state verified from localStorage: ${currentCount} observations and ${engine.state.triggers.length} trigger events preserved.`);
   });
 
-  // Event: Reset
+  // Event: Clear Observation History
   btnReset.addEventListener('click', () => {
     engine.reset();
     render();
-    showToast('Observation history and stored state cleared.');
+    showToast('Observation history and active streak cleared.');
   });
 
   // Initial render

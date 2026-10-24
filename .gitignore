@@ -64,3 +64,6 @@ data/*.json.tmp.*
 data/*.json.corrupted.*
 !data/.gitkeep
 demo-output/raw/
+demo-output/*.png
+
+.vercel

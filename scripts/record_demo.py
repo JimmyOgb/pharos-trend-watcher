@@ -29,17 +29,17 @@ _RAW_VIDEO_DIR.mkdir(parents=True, exist_ok=True)
 PORT = 8995
 
 NARRATION_TEXT = (
-    "Welcome to Pharos Trend Watcher, built for the Pharos Agent Arena Season of AI Hard tier. "
-    "Autonomous agents monitoring volatile blockchain metrics must not panic on isolated spikes or oracle glitches. "
+    "Welcome to Pharos Trend Watcher: persistent, multi-observation trend monitoring with auditable history. "
+    "Autonomous agents monitoring volatile metrics must not panic on isolated spikes or oracle glitches. "
     "Trend Watcher provides durable memory across runs, acting only once a trend is confirmed across multiple observations. "
     "Notice the configurable threshold, strictly enforcing a minimum of three observations. "
-    "Let us run the single spike verification test. "
+    "Let us check spike resistance using a built-in verification scenario. "
     "Watch Step 3 closely: an extreme sixty percent crash occurs. The engine recognizes this as an isolated noise spike and does not trigger! "
-    "The market immediately bounces back, resetting the downward streak. "
+    "The reading immediately bounces back, resetting the downward streak. "
     "Later, three sustained consecutive drops occur. At Step 7, the threshold is met, and the trend condition triggers instantly. "
     "The trigger banner records the exact moment, qualifying observation ID, and complete rationale. "
-    "When we simulate a process restart, previous history and streaks are cleanly recovered from durable storage without duplicates. "
-    "Pharos Trend Watcher is fully tested with forty-six passing tests, ready for autonomous agent execution."
+    "When we verify persistence, previous history and streaks are cleanly recovered from durable storage without duplicates. "
+    "Pharos Trend Watcher is fully tested with forty-six passing tests, delivering reliable trend detection for autonomous workflows."
 )
 
 CURSOR_JS = """
@@ -157,8 +157,8 @@ async def record_playwright_video(raw_video_dir: Path):
         await page.mouse.move(250, 480, steps=25)
         await asyncio.sleep(2.0)
 
-        # 3. Click "⚡ Run Single-Spike Test (Req 05)"
-        print("Executing Single-Spike Verification scenario on dashboard...")
+        # 3. Click "⚡ Check Spike Resistance"
+        print("Executing Check Spike Resistance scenario on dashboard...")
         await smooth_move_and_click(page, "#btn-run-spike", pause_after=5.5)
 
         # 4. Scroll to view trigger card
@@ -170,12 +170,12 @@ async def record_playwright_video(raw_video_dir: Path):
         await page.mouse.move(750, 600, steps=25)
         await asyncio.sleep(3.0)
 
-        # 6. Click "Simulate Reload / Crash (Req 01 & 03)"
-        print("Simulating process crash and reload from persistent storage...")
+        # 6. Click "🔄 Verify Persistence"
+        print("Verifying state reload from persistent storage...")
         await smooth_move_and_click(page, "#btn-simulate-reload", pause_after=3.0)
 
-        # 7. Scroll down to inspect the Acceptance Checklist
-        print("Inspecting official requirements checklist...")
+        # 7. Scroll down to inspect the Test Suite Coverage
+        print("Inspecting automated test suite coverage card...")
         await page.evaluate("window.scrollTo({top: 500, behavior: 'smooth'})")
         await asyncio.sleep(3.5)
 
