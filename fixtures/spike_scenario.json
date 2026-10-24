@@ -1,0 +1,80 @@
+{
+  "description": "Synthetic 8-observation test scenario demonstrating single-spike resistance and subsequent genuine trend trigger",
+  "metric": "pharos_gas_price_gwei",
+  "threshold": 3,
+  "direction": "DOWNWARD",
+  "readings": [
+    {
+      "step": 1,
+      "id": "obs_spike_01",
+      "timestamp": "2026-10-24T10:00:00Z",
+      "value": 100.0,
+      "expected_streak": 1,
+      "expected_triggered": false,
+      "note": "Baseline established"
+    },
+    {
+      "step": 2,
+      "id": "obs_spike_02",
+      "timestamp": "2026-10-24T10:01:00Z",
+      "value": 102.0,
+      "expected_streak": 1,
+      "expected_triggered": false,
+      "note": "Slight upward noise; resets streak"
+    },
+    {
+      "step": 3,
+      "id": "obs_spike_03",
+      "timestamp": "2026-10-24T10:02:00Z",
+      "value": 40.0,
+      "expected_streak": 2,
+      "expected_triggered": false,
+      "note": "EXTREME ISOLATED SPIKE (-60.8%); streak=2, below threshold of 3, MUST NOT TRIGGER"
+    },
+    {
+      "step": 4,
+      "id": "obs_spike_04",
+      "timestamp": "2026-10-24T10:03:00Z",
+      "value": 99.0,
+      "expected_streak": 1,
+      "expected_triggered": false,
+      "note": "IMMEDIATE RECOVERY (+147.5%); resets downward streak, MUST NOT TRIGGER"
+    },
+    {
+      "step": 5,
+      "id": "obs_spike_05",
+      "timestamp": "2026-10-24T10:04:00Z",
+      "value": 100.0,
+      "expected_streak": 1,
+      "expected_triggered": false,
+      "note": "Normalized baseline reading"
+    },
+    {
+      "step": 6,
+      "id": "obs_spike_06",
+      "timestamp": "2026-10-24T10:05:00Z",
+      "value": 94.0,
+      "expected_streak": 2,
+      "expected_triggered": false,
+      "note": "Qualifying downward drop 1 (streak=2/3)"
+    },
+    {
+      "step": 7,
+      "id": "obs_spike_07",
+      "timestamp": "2026-10-24T10:06:00Z",
+      "value": 88.0,
+      "expected_streak": 3,
+      "expected_triggered": true,
+      "note": "Qualifying downward drop 2 (streak=3/3); REACHES THRESHOLD 3 -> TRIGGER CONFIRMED"
+    },
+    {
+      "step": 8,
+      "id": "obs_spike_08",
+      "timestamp": "2026-10-24T10:07:00Z",
+      "value": 81.0,
+      "expected_streak": 4,
+      "expected_triggered": false,
+      "note": "Continued trend drop (streak=4/3); does not duplicate trigger for same window"
+    }
+  ]
+}

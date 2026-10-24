@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pharos-trend-watcher"
+version = "0.1.0"
+description = "Pharos SkillEngine Trend Watcher — Persistent Multi-Observation Trend Detection"
+readme = "README.md"
+authors = [{ name = "JimmyOgb" }]
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0"
+]
+
+[project.scripts]
+pharos-trend = "scripts.watcher:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+pythonpath = ["."]
+addopts = "-v --strict-markers"
