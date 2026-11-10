@@ -67,6 +67,15 @@ class TrendInspector:
                 f"Latest Timestamp     : {latest_obs.timestamp}",
                 f"Latest Obs ID        : {latest_obs.id}",
             ])
+            if latest_obs.mcp_tool or latest_obs.network or latest_obs.source:
+                prov_parts = []
+                if latest_obs.network:
+                    prov_parts.append(f"Network: {latest_obs.network} (Chain ID {latest_obs.chain_id})")
+                if latest_obs.mcp_tool:
+                    prov_parts.append(f"Tool: {latest_obs.mcp_tool}")
+                if latest_obs.source:
+                    prov_parts.append(f"Source: {latest_obs.source}")
+                lines.append(f"Live Provenance      : {' | '.join(prov_parts)}")
 
         lines.append("-" * 60)
         lines.append(f"Trend Triggered      : {'YES - CONFIRMED' if state.triggers else 'NO - MONITORING'}")

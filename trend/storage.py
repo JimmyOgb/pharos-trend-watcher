@@ -40,6 +40,11 @@ class Observation:
     value: float
     delta: Optional[float] = None
     streak: int = 1
+    network: Optional[str] = None
+    chain_id: Optional[int] = None
+    source: Optional[str] = None
+    mcp_tool: Optional[str] = None
+    provenance: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -53,6 +58,11 @@ class Observation:
             value=float(data["value"]),
             delta=float(data["delta"]) if data.get("delta") is not None else None,
             streak=int(data.get("streak", 1)),
+            network=str(data["network"]) if data.get("network") is not None else None,
+            chain_id=int(data["chain_id"]) if data.get("chain_id") is not None else None,
+            source=str(data["source"]) if data.get("source") is not None else None,
+            mcp_tool=str(data["mcp_tool"]) if data.get("mcp_tool") is not None else None,
+            provenance=dict(data["provenance"]) if isinstance(data.get("provenance"), dict) else None,
         )
 
 

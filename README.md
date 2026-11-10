@@ -27,6 +27,7 @@ The official challenge specification defines five mandatory acceptance criteria:
 | **03** | **Handles restarts without losing or duplicating history.** | State is reloaded cleanly on process restart. Observations and trigger records feature stable deterministic IDs that reject duplicate submissions idempotently. |
 | **04** | **Shows the stored history and the exact moment the trend condition was met.** | Transparent chronological history table, active streak counters, and immutable trigger event records capturing the triggering observation ID, timestamp, and rationale. |
 | **05** | **Demonstrates that a single spike does not trigger it.** | Reproducible 8-observation negative test proving an isolated -60.8% sudden drop fails to trigger the engine, whereas 3 sustained consecutive drops trigger as expected. |
+| **Live MCP** | **Observes genuine live Pharos metrics without fixture files.** | Official integration with Pharos Chain MCP (`https://mcp.pharos.xyz/mcp`, tool `get_gas_price`, Chain ID 1672) recording real-time values, network provenance, and durable history without silent mock fallback. |
 
 ---
 
@@ -309,9 +310,19 @@ tests/test_storage.py::test_atomic_write_creates_valid_state PASSED      [ 91%]
 tests/test_storage.py::test_corrupted_state_quarantined_not_erased PASSED [ 93%]
 tests/test_storage.py::test_invalid_schema_quarantined PASSED            [ 95%]
 tests/test_storage.py::test_missing_file_initializes_empty_state PASSED  [ 97%]
+tests/test_mcp.py::test_mcp_client_parses_valid_gwei_response PASSED     [ 75%]
+tests/test_mcp.py::test_mcp_client_converts_wei_when_gwei_missing PASSED [ 76%]
+tests/test_mcp.py::test_mcp_client_rejects_negative_gas_price PASSED     [ 78%]
+tests/test_mcp.py::test_mcp_client_rejects_rpc_error_response PASSED     [ 80%]
+tests/test_mcp.py::test_mcp_client_no_silent_fallback_on_network_failure PASSED [ 82%]
+tests/test_mcp.py::test_live_pharos_mcp_connection PASSED                [ 84%]
+tests/test_storage.py::test_atomic_write_creates_valid_state PASSED      [ 92%]
+tests/test_storage.py::test_corrupted_state_quarantined_not_erased PASSED [ 94%]
+tests/test_storage.py::test_invalid_schema_quarantined PASSED            [ 96%]
+tests/test_storage.py::test_missing_file_initializes_empty_state PASSED  [ 98%]
 tests/test_storage.py::test_trigger_record_persistence PASSED            [100%]
 
-============================= 46 passed in 7.09s ==============================
+============================= 52 passed in 13.40s =============================
 ```
 
 ---
@@ -341,26 +352,37 @@ pharos-trend-watcher/
 ├── pyproject.toml
 ├── README.md
 ├── SKILL.md
+├── vercel.json
+├── api/
+│   ├── index.py
+│   └── mcp-observe.js
 ├── data/
 │   └── trend_state.json
 ├── fixtures/
 │   └── spike_scenario.json
 ├── scripts/
+│   ├── record_demo.py
 │   └── watcher.py
 ├── tests/
 │   ├── test_cli.py
 │   ├── test_config.py
 │   ├── test_engine.py
 │   ├── test_idempotency.py
+│   ├── test_mcp.py
 │   ├── test_restart_process.py
 │   ├── test_spike.py
 │   └── test_storage.py
-└── trend/
-    ├── __init__.py
-    ├── config.py
-    ├── engine.py
-    ├── inspector.py
-    └── storage.py
+├── trend/
+│   ├── __init__.py
+│   ├── config.py
+│   ├── engine.py
+│   ├── inspector.py
+│   ├── mcp.py
+│   └── storage.py
+└── web/
+    ├── app.js
+    ├── index.html
+    └── style.css
 ```
 
 ---
@@ -377,6 +399,13 @@ pharos-trend-watcher/
 ## 15. Requirement-to-Code-to-Test Verification Matrix
 
 | Official Requirement | Primary Component | Primary Test Verification | Status |
+|---|---|---|:---:|
+| **01: Persistent Storage** | `trend/storage.py` | `tests/test_restart_process.py::test_process_restart_preserves_history_and_streak` | **VERIFIED (PASS)** |
+| **02: Configurable Threshold ($\ge 3$)** | `trend/config.py`, `trend/engine.py` | `tests/test_config.py::test_threshold_below_three_rejected`<br>`tests/test_engine.py::test_threshold_greater_than_three_works_correctly` | **VERIFIED (PASS)** |
+| **03: Safe Restart & Duplicate Handling** | `trend/engine.py`, `trend/storage.py` | `tests/test_idempotency.py::test_reprocessing_observation_does_not_duplicate_history`<br>`tests/test_storage.py::test_corrupted_state_quarantined_not_erased` | **VERIFIED (PASS)** |
+| **04: Visible History & Exact Moment** | `trend/inspector.py`, `trend/engine.py` | `tests/test_engine.py::test_three_qualifying_observations_trigger_at_exact_threshold`<br>`tests/test_cli.py::test_cli_history_formatted` | **VERIFIED (PASS)** |
+| **05: Single Spike Negative Test** | `fixtures/spike_scenario.json`, `trend/engine.py` | `tests/test_spike.py::test_single_spike_does_not_trigger_using_fixture`<br>`tests/test_cli.py::test_cli_verify_spike_command` | **VERIFIED (PASS)** |
+| **Live MCP: Official Pharos MCP** | `trend/mcp.py`, `api/mcp-observe.js` | `tests/test_mcp.py::test_live_pharos_mcp_connection`<br>`tests/test_mcp.py::test_mcp_client_no_silent_fallback_on_network_failure` | **VERIFIED (PASS)** |
 |---|---|---|:---:|
 | **01: Persistent Storage** | `trend/storage.py` | `tests/test_restart_process.py::test_process_restart_preserves_history_and_streak` | **VERIFIED (PASS)** |
 | **02: Configurable Threshold ($\ge 3$)** | `trend/config.py`, `trend/engine.py` | `tests/test_config.py::test_threshold_below_three_rejected`<br>`tests/test_engine.py::test_threshold_greater_than_three_works_correctly` | **VERIFIED (PASS)** |

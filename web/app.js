@@ -1,13 +1,20 @@
 /**
  * Pharos Trend Watcher — Client-Side Interactive Engine
  * 
- * Implements the verified Stage 2 trend evaluation semantics in client-side JavaScript
- * backed by persistent browser localStorage. Mirrors the deterministic Python core engine.
+ * Implements deterministic multi-observation trend evaluation semantics in client-side JavaScript
+ * backed by persistent browser localStorage. Connects to official Pharos Chain MCP
+ * endpoint (https://mcp.pharos.xyz/mcp) via /api/mcp-observe.
+ * 
+ * Strict Integrity Guarantees:
+ * - Observes genuine live Pharos metrics with tool & network provenance.
+ * - Enforces minimum 3-observation threshold before confirming any trend.
+ * - Rejects single-spike noise.
+ * - Never silently falls back to fixture files on live failure.
  */
 
 const STORAGE_KEY = 'pharos_trend_watcher_state';
 
-// 8-Point Official Single-Spike Verification Scenario
+// 8-Point Offline Unit Test Scenario for Requirement 05 Verification
 const SPIKE_SCENARIO = [
   { step: 1, id: 'obs_spike_01', timestamp: '2026-10-24T10:00:00Z', value: 100.0, note: 'Baseline established' },
   { step: 2, id: 'obs_spike_02', timestamp: '2026-10-24T10:01:00Z', value: 102.0, note: 'Slight upward noise; resets streak' },
@@ -41,7 +48,7 @@ class ClientTrendEngine {
 
   getInitialState() {
     return {
-      version: '1.0.0',
+      version: '1.1.0',
       config: {
         metric: 'pharos_gas_price_gwei',
         direction: 'DOWNWARD',
@@ -77,14 +84,14 @@ class ClientTrendEngine {
     this.saveState();
   }
 
-  ingest(value, timestamp, customId) {
+  ingest(value, timestamp, customId, provenanceInfo = null) {
     const valFloat = parseFloat(value);
     if (isNaN(valFloat)) {
       throw new Error('Value must be a valid number.');
     }
 
     const isoTime = timestamp || new Date().toISOString();
-    const obsId = customId || this.generateId('obs');
+    const obsId = customId || this.generateDeterministicId(this.state.config.metric, isoTime, valFloat);
 
     // 1. Deduplication check
     const existing = this.state.observations.find(o => o.id === obsId);
@@ -120,7 +127,7 @@ class ClientTrendEngine {
           streak = prev.streak + 1;
         } else if (delta === 0) {
           streak = this.state.config.strict_monotonic ? 1 : prev.streak;
-          if (this.state.config.strict_monotonic) resetReason = 'Flat reading';
+          if (this.state.config.strict_monotonic) resetReason = 'Flat reading broke strictly monotonic downward streak';
         } else {
           streak = 1;
           resetReason = 'Upward reversal';
@@ -130,7 +137,7 @@ class ClientTrendEngine {
           streak = prev.streak + 1;
         } else if (delta === 0) {
           streak = this.state.config.strict_monotonic ? 1 : prev.streak;
-          if (this.state.config.strict_monotonic) resetReason = 'Flat reading';
+          if (this.state.config.strict_monotonic) resetReason = 'Flat reading broke strictly monotonic upward streak';
         } else {
           streak = 1;
           resetReason = 'Downward reversal';
@@ -144,7 +151,12 @@ class ClientTrendEngine {
       metric: this.state.config.metric,
       value: valFloat,
       delta: delta,
-      streak: streak
+      streak: streak,
+      network: provenanceInfo?.network || (provenanceInfo?.tool ? 'Pharos' : 'Local'),
+      chainId: provenanceInfo?.chainId || (provenanceInfo?.tool ? 1672 : null),
+      source: provenanceInfo?.source || (provenanceInfo?.tool ? 'https://mcp.pharos.xyz/mcp' : 'manual'),
+      tool: provenanceInfo?.tool || null,
+      raw: provenanceInfo?.raw || null
     };
 
     this.state.observations.push(newObs);
@@ -170,7 +182,10 @@ class ClientTrendEngine {
         triggering_value: valFloat,
         threshold: this.state.config.threshold,
         qualifying_window_ids: qualIds,
-        rationale: rationale
+        rationale: rationale,
+        network: newObs.network,
+        chainId: newObs.chainId,
+        tool: newObs.tool
       };
 
       this.state.triggers.push(triggerRecord);
@@ -189,28 +204,40 @@ class ClientTrendEngine {
     };
   }
 
-  generateId(prefix) {
-    return `${prefix}_${Math.random().toString(36).substring(2, 10)}`;
+  generateDeterministicId(metric, timestamp, value) {
+    let hash = 0;
+    const str = `${metric}:${timestamp}:${value.toFixed(6)}`;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash |= 0;
+    }
+    const hex = Math.abs(hash).toString(16).padStart(8, '0');
+    return `obs_${hex}`;
   }
 }
 
 // UI Controller
 document.addEventListener('DOMContentLoaded', () => {
   const engine = new ClientTrendEngine();
+  let pollIntervalId = null;
 
-  // Elements
+  // Status Elements
   const statusStreak = document.getElementById('status-streak');
   const statusTriggered = document.getElementById('status-triggered');
   const statusCount = document.getElementById('status-count');
   const statusLatest = document.getElementById('status-latest');
   const progressFill = document.getElementById('progress-fill');
   const progressText = document.getElementById('progress-text');
+  const mcpPingStatus = document.getElementById('mcp-ping-status');
 
+  // Form Elements
   const inputThreshold = document.getElementById('cfg-threshold');
   const selectDirection = document.getElementById('cfg-direction');
   const checkMonotonic = document.getElementById('cfg-monotonic');
   const thresholdError = document.getElementById('threshold-error');
 
+  // Trigger Card Elements
   const triggerCard = document.getElementById('trigger-card');
   const trigIdEl = document.getElementById('trig-id');
   const trigTimeEl = document.getElementById('trig-timestamp');
@@ -218,16 +245,39 @@ document.addEventListener('DOMContentLoaded', () => {
   const trigValEl = document.getElementById('trig-val');
   const trigRationaleEl = document.getElementById('trig-rationale');
 
+  // History Table Elements
   const tableBody = document.getElementById('history-tbody');
   const emptyState = document.getElementById('empty-state');
 
+  // Action Buttons
+  const btnFetchMcp = document.getElementById('btn-fetch-mcp');
+  const btnPollMcp = document.getElementById('btn-poll-mcp');
+  const btnSimulateReload = document.getElementById('btn-simulate-reload');
+  const btnReset = document.getElementById('btn-reset');
   const manualValInput = document.getElementById('manual-value');
   const btnManualIngest = document.getElementById('btn-manual-ingest');
   const btnRunSpike = document.getElementById('btn-run-spike');
   const btnRunThreeDrop = document.getElementById('btn-run-threedrop');
-  const btnSimulateReload = document.getElementById('btn-simulate-reload');
-  const btnReset = document.getElementById('btn-reset');
-  const actionBanner = document.getElementById('action-banner');
+
+  const toastBanner = document.getElementById('toast-banner');
+
+  function showToast(message, isError = false, duration = 3500) {
+    if (!toastBanner) return;
+    toastBanner.textContent = message;
+    if (isError) {
+      toastBanner.style.background = 'rgba(244, 63, 94, 0.2)';
+      toastBanner.style.borderColor = '#f43f5e';
+      toastBanner.style.color = '#fca5a5';
+    } else {
+      toastBanner.style.background = 'rgba(16, 185, 129, 0.2)';
+      toastBanner.style.borderColor = '#10b981';
+      toastBanner.style.color = '#6ee7b7';
+    }
+    toastBanner.style.display = 'block';
+    setTimeout(() => {
+      toastBanner.style.display = 'none';
+    }, duration);
+  }
 
   function render() {
     const state = engine.state;
@@ -256,7 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (latestObs) {
       const deltaStr = latestObs.delta !== null ? (latestObs.delta >= 0 ? `+${latestObs.delta}` : `${latestObs.delta}`) : 'baseline';
-      statusLatest.textContent = `${latestObs.value.toFixed(2)} (${deltaStr})`;
+      statusLatest.textContent = `${latestObs.value.toFixed(2)} Gwei (${deltaStr})`;
     } else {
       statusLatest.textContent = 'No data';
     }
@@ -309,14 +359,23 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
 
+        // Provenance Tag
+        let provHtml = '<span class="badge-tag manual">Manual</span>';
+        if (obs.tool === 'get_gas_price') {
+          provHtml = '<span class="badge-tag mcp">Live MCP (Pharos #1672)</span>';
+        } else if (obs.source === 'test_fixture') {
+          provHtml = '<span class="badge-tag" style="background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.3);">Fixture</span>';
+        }
+
         const tagHtml = isTriggerObs 
           ? '<span class="badge-tag trig">TRIGGER CONFIRMED</span>'
           : '<span class="badge-tag none">No</span>';
 
         tr.innerHTML = `
           <td>${idx + 1}</td>
-          <td>${obs.id}</td>
+          <td><code style="font-size:11px;">${obs.id}</code></td>
           <td>${obs.timestamp.replace('T', ' ').substring(0, 19)}</td>
+          <td>${provHtml}</td>
           <td><strong>${obs.value.toFixed(2)}</strong></td>
           <td>${deltaHtml}</td>
           <td>${obs.streak} / ${cfg.threshold}</td>
@@ -326,6 +385,89 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
   }
+
+  // Live MCP Fetch Function
+  async function fetchLiveMcpObservation(silent = false) {
+    if (btnFetchMcp) btnFetchMcp.disabled = true;
+    if (mcpPingStatus) {
+      mcpPingStatus.textContent = 'Querying MCP...';
+      mcpPingStatus.className = 'badge hard';
+    }
+
+    try {
+      const resp = await fetch('/api/mcp-observe');
+      if (!resp.ok) {
+        throw new Error(`MCP API returned HTTP status ${resp.status}`);
+      }
+      const data = await resp.json();
+
+      if (data.status !== 'ok') {
+        throw new Error(data.error || 'Unknown MCP error response');
+      }
+
+      // Ingest live observation
+      const res = engine.ingest(
+        data.value,
+        data.timestamp,
+        null,
+        {
+          network: data.network,
+          chainId: data.chainId,
+          source: data.source,
+          tool: data.tool,
+          raw: data.raw
+        }
+      );
+
+      render();
+
+      if (mcpPingStatus) {
+        mcpPingStatus.textContent = 'Connected (200 OK)';
+        mcpPingStatus.className = 'badge ready';
+      }
+
+      if (!silent) {
+        if (res.status === 'DUPLICATE') {
+          showToast(`Live observation from MCP ${data.tool}: ${data.value} Gwei (Deduplicated)`);
+        } else {
+          showToast(`Recorded genuine MCP observation: ${data.value} Gwei (Tool: ${data.tool}, Network: ${data.network})`);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to query Pharos MCP:', err);
+      if (mcpPingStatus) {
+        mcpPingStatus.textContent = 'Error';
+        mcpPingStatus.className = 'badge danger';
+      }
+      showToast(`MCP Fetch Error: ${err.message}. Never falling back to fixtures.`, true);
+    } finally {
+      if (btnFetchMcp) btnFetchMcp.disabled = false;
+    }
+  }
+
+  // Event: Fetch Live Pharos MCP Observation
+  btnFetchMcp.addEventListener('click', () => {
+    fetchLiveMcpObservation();
+  });
+
+  // Event: Auto-Poll MCP Toggle
+  btnPollMcp.addEventListener('click', () => {
+    if (pollIntervalId) {
+      clearInterval(pollIntervalId);
+      pollIntervalId = null;
+      btnPollMcp.textContent = '⏱️ Auto-Poll MCP (Every 10s): OFF';
+      btnPollMcp.classList.remove('btn-live', 'polling');
+      showToast('Live MCP polling stopped.');
+    } else {
+      fetchLiveMcpObservation(); // immediate first fetch
+      pollIntervalId = setInterval(() => {
+        fetchLiveMcpObservation(true);
+      }, 10000);
+      btnPollMcp.textContent = '⏱️ Auto-Poll MCP (Every 10s): ON';
+      btnPollMcp.classList.add('btn-live', 'polling');
+      showToast('Live MCP polling active (every 10 seconds).');
+    }
+  });
 
   // Event: Configuration Update
   function handleConfigChange() {
@@ -343,30 +485,20 @@ document.addEventListener('DOMContentLoaded', () => {
   selectDirection.addEventListener('change', handleConfigChange);
   checkMonotonic.addEventListener('change', handleConfigChange);
 
-  const toastBanner = document.getElementById('toast-banner');
-
-  function showToast(message, duration = 3000) {
-    if (!toastBanner) return;
-    toastBanner.textContent = message;
-    toastBanner.style.display = 'block';
-    setTimeout(() => {
-      toastBanner.style.display = 'none';
-    }, duration);
-  }
-
   // Event: Manual Ingest
   btnManualIngest.addEventListener('click', () => {
     const val = parseFloat(manualValInput.value);
     if (isNaN(val)) {
-      showToast('Please enter a valid numeric value.');
+      showToast('Please enter a valid numeric value.', true);
       return;
     }
-    const res = engine.ingest(val);
+    const res = engine.ingest(val, null, null, { source: 'manual' });
     manualValInput.value = '';
     render();
+    showToast(`Manual reading ${val} Gwei ingested.`);
   });
 
-  // Event: Evaluate Trend Sequence (Built-in 3-drop sequence)
+  // Event: Evaluate 3-Drop Test Sequence (Offline fixture)
   btnRunThreeDrop.addEventListener('click', async () => {
     btnRunThreeDrop.disabled = true;
     engine.reset();
@@ -374,21 +506,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const sequence = [100.0, 95.0, 90.0];
     for (let i = 0; i < sequence.length; i++) {
-      engine.ingest(sequence[i], new Date(Date.now() + i * 60000).toISOString(), `seq_drop_0${i + 1}`);
+      engine.ingest(
+        sequence[i],
+        new Date(Date.now() + i * 60000).toISOString(),
+        `seq_drop_0${i + 1}`,
+        { source: 'test_fixture', tool: 'three_drop_test' }
+      );
       render();
       await new Promise(r => setTimeout(r, 400));
     }
     btnRunThreeDrop.disabled = false;
   });
 
-  // Event: Check Spike Resistance (Built-in 8-point scenario)
+  // Event: Run Spike Negative Test (Offline fixture)
   btnRunSpike.addEventListener('click', async () => {
     btnRunSpike.disabled = true;
     engine.reset();
     render();
 
     for (const item of SPIKE_SCENARIO) {
-      engine.ingest(item.value, item.timestamp, item.id);
+      engine.ingest(
+        item.value,
+        item.timestamp,
+        item.id,
+        { source: 'test_fixture', tool: 'spike_scenario.json' }
+      );
       render();
       await new Promise(r => setTimeout(r, 450));
     }
@@ -398,7 +540,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Event: Verify Persistence (Reload from localStorage)
   btnSimulateReload.addEventListener('click', () => {
     const currentCount = engine.state.observations.length;
-    // Instantiate fresh engine from localStorage
     const reloaded = new ClientTrendEngine();
     engine.state = reloaded.state;
     render();
@@ -407,6 +548,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Event: Clear Observation History
   btnReset.addEventListener('click', () => {
+    if (pollIntervalId) {
+      clearInterval(pollIntervalId);
+      pollIntervalId = null;
+      btnPollMcp.textContent = '⏱️ Auto-Poll MCP (Every 10s): OFF';
+      btnPollMcp.classList.remove('btn-live', 'polling');
+    }
     engine.reset();
     render();
     showToast('Observation history and active streak cleared.');

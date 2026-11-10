@@ -30,6 +30,7 @@ from trend.engine import (
     TrendEngine,
 )
 from trend.inspector import TrendInspector
+from trend.mcp import MCPError, PharosMCPClient
 from trend.storage import (
     CorruptedStateError,
     DurableStorage,
@@ -106,6 +107,186 @@ def cmd_observe(args: argparse.Namespace) -> int:
     except (StorageError, EngineError) as err:
         print(f"Engine/Storage Error: {err}", file=sys.stderr)
         return 1
+
+
+def cmd_observe_live(args: argparse.Namespace) -> int:
+    """Fetch genuine real-time metric from official Pharos MCP and record it."""
+    client = PharosMCPClient(endpoint=args.mcp_url)
+    engine = get_engine(args.state_path)
+    poll_count = getattr(args, "poll", 1) or 1
+    interval_sec = getattr(args, "interval", 2.0) or 2.0
+
+    print("=" * 70)
+    print("PHAROS TREND WATCHER — LIVE MCP OBSERVATION INGEST")
+    print("=" * 70)
+    print(f"MCP Endpoint: {args.mcp_url}")
+    print(f"Polling Count: {poll_count} | Interval: {interval_sec}s")
+    print("-" * 70)
+
+    for i in range(poll_count):
+        try:
+            reading = client.fetch_gas_price()
+            res = engine.ingest(
+                value=reading.value,
+                timestamp=reading.timestamp,
+                network=reading.network,
+                chain_id=reading.chain_id,
+                source=reading.source,
+                mcp_tool=reading.mcp_tool,
+                provenance=reading.raw,
+            )
+            print(f"[{i+1}/{poll_count}] Retrieved from Pharos MCP Tool '{reading.mcp_tool}':")
+            print(f"   Value     : {reading.value} Gwei")
+            print(f"   Timestamp : {reading.timestamp}")
+            print(f"   Network   : {reading.network} (Chain ID: {reading.chain_id})")
+            print(f"   Status    : {res.status} | Streak: {res.streak} / {engine.config.threshold}")
+            print(f"   Obs ID    : {res.observation.id if res.observation else 'N/A'}")
+            print(f"   Triggered : {'YES' if res.triggered else 'NO'}")
+            if res.trigger_record:
+                print(f"   Trigger ID: {res.trigger_record.trigger_id}")
+                print(f"   Rationale : {res.trigger_record.rationale}")
+        except MCPError as err:
+            print(f"MCP Error on attempt {i+1}: {err}", file=sys.stderr)
+            return 1
+        except Exception as err:
+            print(f"Unexpected Error on attempt {i+1}: {err}", file=sys.stderr)
+            return 1
+
+        if i < poll_count - 1:
+            import time
+            time.sleep(interval_sec)
+
+    print("-" * 70)
+    print("Live MCP observation(s) recorded successfully to persistent storage.")
+    return 0
+
+
+def cmd_verify_live_flow(args: argparse.Namespace) -> int:
+    """Demonstrate Requirement 3: 3 genuine observations -> process restart -> retrieve -> 4th observation -> continue history."""
+    import time
+
+    test_state_path = args.state_path or (_PROJECT_ROOT / "data" / "live_flow_test_state.json")
+    if Path(test_state_path).exists():
+        Path(test_state_path).unlink()
+
+    client = PharosMCPClient(endpoint=args.mcp_url)
+
+    print("=" * 70)
+    print("PHAROS TREND WATCHER — REQUIREMENT 03 & LIVE MCP VERIFICATION")
+    print("=" * 70)
+    print(f"Target MCP Endpoint: {args.mcp_url}")
+    print(f"Isolated Storage   : {test_state_path}")
+    print("-" * 70)
+
+    # 1. First real MCP observation
+    print("\n[Step 1/7] Obtaining and persisting 1st real MCP observation...")
+    engine = get_engine(test_state_path)
+    r1 = client.fetch_gas_price()
+    res1 = engine.ingest(
+        value=r1.value,
+        timestamp=r1.timestamp,
+        network=r1.network,
+        chain_id=r1.chain_id,
+        source=r1.source,
+        mcp_tool=r1.mcp_tool,
+        provenance=r1.raw,
+    )
+    print(f"   Obs 1 ID: {res1.observation.id} | Value: {r1.value} Gwei | Timestamp: {r1.timestamp}")
+    print(f"   Streak  : {res1.streak} / {engine.config.threshold} | Status: {res1.status}")
+    assert len(engine.observations) == 1
+
+    time.sleep(1.5)
+
+    # 2. Second real MCP observation
+    print("\n[Step 2/7] Obtaining and persisting 2nd real MCP observation...")
+    r2 = client.fetch_gas_price()
+    res2 = engine.ingest(
+        value=r2.value,
+        timestamp=r2.timestamp,
+        network=r2.network,
+        chain_id=r2.chain_id,
+        source=r2.source,
+        mcp_tool=r2.mcp_tool,
+        provenance=r2.raw,
+    )
+    print(f"   Obs 2 ID: {res2.observation.id} | Value: {r2.value} Gwei | Timestamp: {r2.timestamp}")
+    print(f"   Streak  : {res2.streak} / {engine.config.threshold} | Status: {res2.status}")
+    assert len(engine.observations) == 2
+
+    time.sleep(1.5)
+
+    # 3. Third real MCP observation
+    print("\n[Step 3/7] Obtaining and persisting 3rd real MCP observation...")
+    r3 = client.fetch_gas_price()
+    res3 = engine.ingest(
+        value=r3.value,
+        timestamp=r3.timestamp,
+        network=r3.network,
+        chain_id=r3.chain_id,
+        source=r3.source,
+        mcp_tool=r3.mcp_tool,
+        provenance=r3.raw,
+    )
+    print(f"   Obs 3 ID: {res3.observation.id} | Value: {r3.value} Gwei | Timestamp: {r3.timestamp}")
+    print(f"   Streak  : {res3.streak} / {engine.config.threshold} | Status: {res3.status}")
+    assert len(engine.observations) == 3
+
+    # 4. Restart the execution process (destroy in-memory instance)
+    print("\n[Step 4/7] Simulating process restart (wiping in-memory engine)...")
+    del engine
+
+    # 5. Retrieve previous observations from persistent storage
+    print("\n[Step 5/7] Re-initializing engine from persistent disk storage...")
+    restarted_engine = get_engine(test_state_path)
+    recovered_count = len(restarted_engine.observations)
+    print(f"   Recovered Observations: {recovered_count} (Expected: 3)")
+    assert recovered_count == 3, f"Expected 3 recovered observations, got {recovered_count}"
+    assert restarted_engine.observations[0].id == res1.observation.id
+    assert restarted_engine.observations[1].id == res2.observation.id
+    assert restarted_engine.observations[2].id == res3.observation.id
+    print("   Observation IDs match persisted records exactly.")
+
+    time.sleep(1.5)
+
+    # 6. Obtain another live observation
+    print("\n[Step 6/7] Obtaining 4th live MCP observation after restart...")
+    r4 = client.fetch_gas_price()
+    res4 = restarted_engine.ingest(
+        value=r4.value,
+        timestamp=r4.timestamp,
+        network=r4.network,
+        chain_id=r4.chain_id,
+        source=r4.source,
+        mcp_tool=r4.mcp_tool,
+        provenance=r4.raw,
+    )
+    print(f"   Obs 4 ID: {res4.observation.id} | Value: {r4.value} Gwei | Timestamp: {r4.timestamp}")
+
+    # 7. Continue the same history without resetting or duplicating it
+    print("\n[Step 7/7] Confirming history continued without reset or duplicate...")
+    total_count = len(restarted_engine.observations)
+    print(f"   Total Observations in Persistent Storage: {total_count} (Expected: 4)")
+    assert total_count == 4, f"Expected 4 observations, got {total_count}"
+
+    # Also test duplicate rejection of existing observation
+    print("   Testing duplicate resubmission of observation 4...")
+    dup_res = restarted_engine.ingest(
+        value=r4.value,
+        timestamp=r4.timestamp,
+        observation_id=res4.observation.id,
+    )
+    print(f"   Duplicate Status: {dup_res.status} ({dup_res.message})")
+    assert dup_res.status == "DUPLICATE"
+    assert len(restarted_engine.observations) == 4
+
+    inspector = TrendInspector(restarted_engine)
+    print("\n" + inspector.format_history_table())
+
+    print("\n" + "=" * 70)
+    print("VERDICT: PASS — 7-Step Live MCP Persistent History Verified.")
+    print(f"Trigger Status: {'CONFIRMED' if restarted_engine.triggers else 'MONITORING (Normal on steady gas price)'}")
+    print("=" * 70)
+    return 0
 
 
 def cmd_verify_spike(args: argparse.Namespace) -> int:
@@ -229,6 +410,11 @@ def main() -> int:
         default=str(DEFAULT_STATE_PATH),
         help=f"Path to durable state JSON file (default: {DEFAULT_STATE_PATH})",
     )
+    state_parser.add_argument(
+        "--mcp-url",
+        default="https://mcp.pharos.xyz/mcp",
+        help="Official Pharos MCP server URL (default: https://mcp.pharos.xyz/mcp)",
+    )
 
     parser = argparse.ArgumentParser(
         description="Pharos Trend Watcher CLI — Multi-observation trend detection with durable memory.",
@@ -251,6 +437,22 @@ def main() -> int:
     p_observe.add_argument("--timestamp", default=None, help="ISO-8601 timestamp (default: UTC now)")
     p_observe.add_argument("--id", default=None, help="Explicit unique observation ID")
 
+    # Subcommand: observe-live (Official Live MCP integration)
+    p_obs_live = subparsers.add_parser(
+        "observe-live",
+        parents=[state_parser],
+        help="Query official Pharos MCP tool 'get_gas_price' and record genuine live observation",
+    )
+    p_obs_live.add_argument("--poll", type=int, default=1, help="Number of consecutive live observations to poll")
+    p_obs_live.add_argument("--interval", type=float, default=2.0, help="Interval in seconds between polls")
+
+    # Subcommand: verify-live-flow (Requirement 03 live demonstration sequence)
+    subparsers.add_parser(
+        "verify-live-flow",
+        parents=[state_parser],
+        help="Demonstrate Requirement 03 live 7-step sequence with persistent recovery across process restart",
+    )
+
     # Subcommand: verify-spike
     subparsers.add_parser("verify-spike", parents=[state_parser], help="Run the deterministic Requirement 05 single-spike test")
 
@@ -265,6 +467,10 @@ def main() -> int:
         return cmd_history(parsed)
     elif parsed.command == "observe":
         return cmd_observe(parsed)
+    elif parsed.command == "observe-live":
+        return cmd_observe_live(parsed)
+    elif parsed.command == "verify-live-flow":
+        return cmd_verify_live_flow(parsed)
     elif parsed.command == "verify-spike":
         return cmd_verify_spike(parsed)
     elif parsed.command == "demo":

@@ -87,6 +87,11 @@ class TrendEngine:
         value: float,
         timestamp: Optional[datetime | str] = None,
         observation_id: Optional[str] = None,
+        network: Optional[str] = None,
+        chain_id: Optional[int] = None,
+        source: Optional[str] = None,
+        mcp_tool: Optional[str] = None,
+        provenance: Optional[dict] = None,
     ) -> IngestionResult:
         """
         Ingest a new numeric metric observation.
@@ -148,6 +153,11 @@ class TrendEngine:
             value=value_float,
             delta=delta,
             streak=streak,
+            network=network,
+            chain_id=chain_id,
+            source=source,
+            mcp_tool=mcp_tool,
+            provenance=provenance,
         )
 
         self.state.observations.append(new_obs)

@@ -65,5 +65,6 @@ data/*.json.corrupted.*
 !data/.gitkeep
 demo-output/raw/
 demo-output/*.png
+demo-output/*.jpg
 
 .vercel

@@ -20,9 +20,11 @@ A SkillEngine-compatible decision engine with durable memory that monitors time-
 
 | User Need | Capability | Detailed Instructions |
 |---|---|---|
+| Ingest live Pharos MCP metric | `python scripts/watcher.py observe-live` | Query official Pharos MCP tool `get_gas_price` and record genuine reading |
 | Ingest a metric reading | `python scripts/watcher.py observe --value <FLOAT>` | Record reading with atomic persistence and streak evaluation |
 | View active trend status | `python scripts/watcher.py status` | Inspect current active streak, threshold, and trigger confirmation |
 | View chronological history | `python scripts/watcher.py history` | Audit stored observations, timestamps, deltas, and trigger records |
+| Run 7-step live MCP restart flow | `python scripts/watcher.py verify-live-flow` | 3 real MCP obs -> restart process -> retrieve from disk -> 4th obs -> continue |
 | Run single-spike negative test | `python scripts/watcher.py verify-spike` | Verify that an isolated -60% crash does NOT trigger the engine |
 | Run end-to-end demo | `python scripts/watcher.py demo` | Execute complete 5-requirement demonstration sequence |
 | Output JSON summary | `python scripts/watcher.py status --json` | Stream machine-parseable state and trigger records |

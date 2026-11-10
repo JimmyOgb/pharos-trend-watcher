@@ -8,9 +8,12 @@ version = "0.1.0"
 description = "Pharos SkillEngine Trend Watcher — Persistent Multi-Observation Trend Detection"
 readme = "README.md"
 authors = [{ name = "JimmyOgb" }]
-license = { text = "MIT" }
+license = "MIT"
 requires-python = ">=3.9"
 dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["trend*"]
 
 [project.optional-dependencies]
 dev = [

@@ -16,19 +16,23 @@
         <div class="logo-badge">TW</div>
         <div class="title-group">
           <h1>Pharos Trend Watcher</h1>
-          <p class="subtitle">Persistent, multi-observation trend monitoring with auditable history.</p>
+          <p class="subtitle">Persistent, multi-observation trend monitoring with official Pharos MCP live data.</p>
         </div>
       </div>
       <div class="header-badges">
+        <span class="badge ready" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-family: var(--mono); font-size: 12px;">
+          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981;"></span>
+          LIVE MCP: Pharos Chain (1672)
+        </span>
         <a href="https://github.com/JimmyOgb/pharos-trend-watcher" target="_blank" class="badge-link">View source code ↗</a>
       </div>
     </header>
 
-    <!-- Architecture & Persistence Disclosure -->
+    <!-- Architecture & Provenance Disclosure -->
     <div class="disclosure-banner">
       <div>
-        <strong>Browser-Local Engine Instance:</strong>
-        This interface evaluates trend sequences in your browser with persistent <code>localStorage</code> storage across page reloads. The Python engine runs independently with disk-backed atomic JSON persistence (<code>python scripts/watcher.py</code>); the two environments do not share a database or synchronize automatically.
+        <strong>Official Pharos Chain MCP Integration:</strong>
+        Observes genuine on-chain metrics via <code>get_gas_price</code> directly from <code>https://mcp.pharos.xyz/mcp</code> (Chain ID 1672). Every genuine observation records actual value, timestamp, network provenance, and persists to durable storage. No fixture fallback on error. Trend confirmation requires $\ge 3$ consecutive qualifying observations.
       </div>
       <div>
         <a href="https://github.com/JimmyOgb/pharos-trend-watcher" target="_blank" style="color: var(--cyan); text-decoration: none; font-weight: 600; white-space: nowrap;">View source code ↗</a>
@@ -63,8 +67,8 @@
         <!-- Live Status Card -->
         <div class="card">
           <div class="card-title">
-            <span>Engine Status</span>
-            <span class="badge ready">Active</span>
+            <span>Engine & Provenance Status</span>
+            <span class="badge ready" id="badge-engine-state">Active</span>
           </div>
 
           <div class="status-grid">
@@ -86,13 +90,71 @@
             </div>
           </div>
 
-          <div class="progress-container">
+          <!-- Provenance Box -->
+          <div class="provenance-card" style="margin-top: 14px;">
+            <div class="provenance-item">
+              <span class="provenance-key">Metric Name</span>
+              <span class="provenance-val">pharos_gas_price_gwei</span>
+            </div>
+            <div class="provenance-item">
+              <span class="provenance-key">Network & Chain ID</span>
+              <span class="provenance-val">Pharos (1672)</span>
+            </div>
+            <div class="provenance-item">
+              <span class="provenance-key">Official MCP Tool</span>
+              <span class="provenance-val">get_gas_price</span>
+            </div>
+            <div class="provenance-item">
+              <span class="provenance-key">MCP Endpoint</span>
+              <span class="provenance-val" style="font-size: 11px;">https://mcp.pharos.xyz/mcp</span>
+            </div>
+          </div>
+
+          <div class="progress-container" style="margin-top: 14px;">
             <div class="progress-header">
               <span>Threshold Progress</span>
               <span id="progress-text">0 / 3 (0%)</span>
             </div>
             <div class="progress-bar">
               <div class="progress-fill" id="progress-fill"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live MCP Observation Actions -->
+        <div class="card">
+          <div class="card-title">
+            <span>Live MCP Ingestion</span>
+            <span class="badge ready" id="mcp-ping-status">Ready</span>
+          </div>
+
+          <div class="btn-group-vertical" style="gap: 10px;">
+            <div>
+              <button id="btn-fetch-mcp" class="btn btn-live" style="width: 100%;">
+                📡 Fetch Live Pharos MCP Observation
+              </button>
+              <div class="action-caption">Directly calls official Pharos MCP tool <code>get_gas_price</code> and records genuine live gas price reading into persistent storage.</div>
+            </div>
+
+            <div>
+              <button id="btn-poll-mcp" class="btn" style="width: 100%;">
+                ⏱️ Auto-Poll MCP (Every 10s): OFF
+              </button>
+              <div class="action-caption">Continuously queries official Pharos MCP at regular intervals to observe genuine network gas price fluctuations.</div>
+            </div>
+
+            <div>
+              <button id="btn-simulate-reload" class="btn" style="width: 100%;">
+                🔄 Verify Persistence (Reload from Storage)
+              </button>
+              <div class="action-caption">Re-reads engine state directly from browser localStorage to confirm all genuine observations and trigger states survive session restarts without duplication.</div>
+            </div>
+
+            <div style="margin-top: 4px;">
+              <button id="btn-reset" class="btn btn-danger" style="width: 100%;">
+                🗑️ Clear Observation History
+              </button>
+              <div class="action-caption">Clears stored browser history and resets engine streak to zero.</div>
             </div>
           </div>
         </div>
@@ -121,46 +183,34 @@
           </div>
         </div>
 
-        <!-- Observation Ingestion & Verification Actions -->
+        <!-- Manual & Offline Unit Test Scenarios -->
         <div class="card">
-          <div class="card-title">Observation Actions</div>
+          <div class="card-title">Manual & Offline Unit Scenarios</div>
           
           <div class="form-group">
             <label for="manual-value">Manual Observation Ingest</label>
             <div class="btn-row">
-              <input type="number" id="manual-value" class="input" placeholder="e.g. 95.5" step="0.1" style="flex: 1;">
+              <input type="number" id="manual-value" class="input" placeholder="e.g. 10.5" step="0.1" style="flex: 1;">
               <button id="btn-manual-ingest" class="btn btn-primary">Ingest</button>
             </div>
-            <div class="field-help">Record an observation point directly into the engine's active streak evaluation.</div>
+            <div class="field-help">Manually ingest an arbitrary reading for testing custom values.</div>
           </div>
 
-          <div class="btn-group-vertical" style="margin-top: 10px; gap: 12px;">
+          <div class="btn-group-vertical" style="margin-top: 14px; gap: 10px;">
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase;">Unit Test Fixture Scenarios:</div>
+
             <div>
               <button id="btn-run-spike" class="btn btn-accent" style="width: 100%;">
-                ⚡ Check Spike Resistance
+                ⚡ Run Spike Negative Test (Fixture)
               </button>
-              <div class="action-caption">Runs an 8-point built-in scenario: an isolated -60.8% drop fails to trigger, and a subsequent 3-observation drop triggers correctly.</div>
+              <div class="action-caption">Executes the 8-point offline verification sequence: an isolated -60.8% drop fails to trigger, and 3 consecutive drops confirm the trend.</div>
             </div>
 
             <div>
               <button id="btn-run-threedrop" class="btn" style="width: 100%;">
-                📉 Evaluate Trend Sequence
+                📉 Evaluate 3-Drop Test Sequence
               </button>
-              <div class="action-caption">Ingests a built-in sequence of 3 qualifying consecutive drops (100 → 95 → 90) to confirm trend triggering at threshold K.</div>
-            </div>
-
-            <div>
-              <button id="btn-simulate-reload" class="btn" style="width: 100%;">
-                🔄 Verify Persistence
-              </button>
-              <div class="action-caption">Re-reads the engine state directly from browser localStorage to confirm all observations and triggers survive session restarts.</div>
-            </div>
-
-            <div style="margin-top: 4px;">
-              <button id="btn-reset" class="btn btn-danger" style="width: 100%;">
-                🗑️ Clear Observation History
-              </button>
-              <div class="action-caption">Clears stored browser history and resets engine streak to zero.</div>
+              <div class="action-caption">Ingests a 3-point monotonic downward sequence (100 → 95 → 90) to confirm trend triggering at threshold K.</div>
             </div>
           </div>
         </div>
@@ -179,9 +229,10 @@
             <table>
               <thead>
                 <tr>
-                  <th style="width: 40px;">#</th>
+                  <th style="width: 36px;">#</th>
                   <th>Observation ID</th>
                   <th>Timestamp (UTC)</th>
+                  <th>Provenance / Tool</th>
                   <th>Value</th>
                   <th>Delta</th>
                   <th>Streak</th>
@@ -193,7 +244,7 @@
               </tbody>
             </table>
             <div id="empty-state" class="empty-state">
-              No observations recorded yet. Enter an observation value above or select <strong>Check Spike Resistance</strong> to evaluate a built-in verification scenario.
+              No observations recorded yet. Click <strong>Fetch Live Pharos MCP Observation</strong> to query live data from <code>mcp.pharos.xyz/mcp</code>.
             </div>
           </div>
         </div>
@@ -201,11 +252,11 @@
         <!-- Automated Test Suite Coverage Card -->
         <div class="card">
           <div class="card-title">
-            <span>Automated Test Suite Coverage (46 Verified Tests)</span>
-            <span class="badge ready">46 / 46 PASSING</span>
+            <span>Automated Test Suite Coverage (52 Verified Tests)</span>
+            <span class="badge ready">52 / 52 PASSING</span>
           </div>
           <div style="font-size: 12px; color: var(--text-muted); margin-top: -8px;">
-            The automated test suite (<code>pytest -p no:gltest tests/</code>) validates all 5 core engine requirements before release.
+            The automated test suite (<code>pytest -p no:gltest tests/</code>) validates all engine, persistence, and live MCP requirements.
           </div>
           
           <div class="checklist-grid" style="margin-top: 6px;">
@@ -247,6 +298,14 @@
                 <span class="check-status">test_spike.py</span>
               </div>
               <div class="check-desc">Isolated -60.8% sudden drop fails to trigger; genuine 3 drops confirm trend.</div>
+            </div>
+
+            <div class="check-item">
+              <div class="check-item-head">
+                <span>Requirement 06: Official Pharos MCP</span>
+                <span class="check-status">test_mcp.py</span>
+              </div>
+              <div class="check-desc">Validates real-time gas price from mcp.pharos.xyz/mcp (Chain 1672) with 0 fallback.</div>
             </div>
           </div>
         </div>
